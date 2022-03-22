@@ -1,4 +1,14 @@
+### Prerequisites
 
+* `kubectl`
+* `vault` binary
+* `consul` binaries
+
+If you do not want to install `consul` and `vault` globally, create a `bin` folder
+in the repository root and download the binaries there, the scripts include that 
+folder in the `PATH` when running.
+
+### Run the environment
 
 Run the whole environment on Linux
 

@@ -59,15 +59,20 @@ export token_reviewer_jwt="`kubectl exec --stdin=true --tty=true vault-0 -n vaul
 # export kubernetes_ca_cert="`kubectl exec --stdin=true --tty=true vault-0 -n vault -- awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' /var/run/secrets/kubernetes.io/serviceaccount/ca.crt`"
 export kubernetes_ca_cert="`kubectl exec --stdin=true --tty=true vault-0 -n vault -- cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt`"
 export kubernetes_port_443_tcp_addr=`kubectl exec --stdin=true --tty=true vault-0 -n vault -- /bin/sh -c 'echo -en $KUBERNETES_PORT_443_TCP_ADDR'`
-export kubernetes_issuer=`kubectl proxy & && curl --silent http://127.0.0.1:8001/.well-known/openid-configuration | jq -r .issuer && kill %%`
 
+kubectl proxy &
+
+export kubernetes_issuer=`curl --silent http://127.0.0.1:8001/.well-known/openid-configuration | jq -r .issuer`
+
+kill %%
 
 # kubectl exec --stdin=true --tty=true vault-0 -n vault -- \
 vault write auth/kubernetes/config \
   token_reviewer_jwt="${token_reviewer_jwt}" \
   kubernetes_host="https://${kubernetes_port_443_tcp_addr}:443" \
-  kubernetes_ca_cert="${kubernetes_ca_cert}" \
-  issuer="${kubernetes_issuer}"
+  # issuer="${kubernetes_issuer}" \
+  disable_iss_validation=true \
+  kubernetes_ca_cert="${kubernetes_ca_cert}"
 # Success! Data written to: auth/kubernetes/config
 
 
