@@ -1,0 +1,8 @@
+logs/
+bin/
+tests/
+
+*.crt
+*.ctr
+
+consul.hclic
