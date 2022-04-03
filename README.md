@@ -32,3 +32,8 @@ Add license in `./consul.hclic`
 ./_spin_consul.sh
 ```
 
+### Resources
+
+https://gist.github.com/lamadome/1756fb2923a2a873e8707a3a7806fcb1
+
+https://gist.github.com/kschoche/3f773230426ca6e52d11b86e0122ef25

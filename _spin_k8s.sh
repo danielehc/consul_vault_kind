@@ -20,7 +20,19 @@ fi
 echo "Cleaning Environment"
 clean_env
 
-kind create cluster --name ${CLUSTER}
+cat > ${ASSETS}/kind-config.yaml <<EOF
+# three node (two workers) cluster config
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+- role: worker
+- role: worker
+- role: worker
+EOF
+
+
+kind create cluster --name ${CLUSTER} --config ${ASSETS}/kind-config.yaml
 
 kubectl cluster-info --context kind-${CLUSTER}
 

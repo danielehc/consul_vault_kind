@@ -9,15 +9,21 @@ global:
       consulServerRole: consul-server
       consulClientRole: consul-client
       consulCARole: consul-ca
+      # manageSystemACLsRole: server-acl-init
+      # ca:
+      #   secretName: vault-ca-secret
+      #   secretKey: "tls.crt"
       connectCA:
         address: http://vault.vault:8200
         rootPKIPath: connect-root/
         intermediatePKIPath: connect-intermediate-dc1/
   enterpriseLicense:
-    secretName: "consul-ent-license"
-    secretKey: key
+    secretName: 'consul/data/secret/enterpriselicense'
+    secretKey: 'key'
   adminPartitions:
-    enabled: false
+    enabled: true
+    service:
+      type: ClusterIP
   tls:
     enabled: true
     enableAutoEncrypt: true
@@ -65,7 +71,7 @@ controller:
 #not supported with the current vault backend
 meshGateway:
   enabled: false
-  replicas: 1
+  replicas: 0
 ingressGateways:
   replicas: 1
   enabled: enable
@@ -77,7 +83,9 @@ terminatingGateways:
   replicas: 1
   enabled: true
   gateways:
-  - name: terminating-gateway
+    - name: terminating-gateway
+      service:
+        type: ClusterIP
 ui:
   enabled: true
   service:
@@ -89,4 +97,4 @@ syncCatalog:
   enabled: true
   consulNamespaces:
     mirroringK8S: true
-  k8sDenyNamespaces: ["kube-system", "kube-public", "consul"]
+  k8sDenyNamespaces: ["kube-system", "kube-public", "consul", "kubernetes-dashboard"]

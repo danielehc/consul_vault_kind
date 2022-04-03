@@ -52,6 +52,16 @@ vault kv put consul/secret/gossip gossip="$(consul keygen)"
 # destroyed        false
 # version          1
 
+vault kv put consul/secret/enterpriselicense key="$(cat ./consul.hclic)"
+# Key                Value
+# ---                -----
+# created_time       2022-03-22T16:25:14.073090874Z
+# custom_metadata    <nil>
+# deletion_time      n/a
+# destroyed          false
+# version            1
+
+
 vault auth enable kubernetes
 # Success! Enabled kubernetes auth method at: kubernetes/
 
@@ -79,7 +89,7 @@ vault write auth/kubernetes/config \
 vault write auth/kubernetes/role/consul-server \
   bound_service_account_names=consul-server \
   bound_service_account_namespaces=consul \
-  policies="gossip-policy,consul-server,connect" \
+  policies="gossip-policy,consul-server,connect,enterpriselicense-policy" \
   ttl=24h
 # Success! Data written to: auth/kubernetes/role/consul-server
 
@@ -87,7 +97,7 @@ vault write auth/kubernetes/role/consul-server \
 vault write auth/kubernetes/role/consul-client \
   bound_service_account_names=consul-client \
   bound_service_account_namespaces=consul \
-  policies="gossip-policy,ca-policy" \
+  policies="gossip-policy,ca-policy,enterpriselicense-policy" \
   ttl=24h
 # Success! Data written to: auth/kubernetes/role/consul-client
 
@@ -101,6 +111,11 @@ vault write auth/kubernetes/role/consul-ca \
   ttl=1h
 # Success! Data written to: auth/kubernetes/role/consul-ca
 
+# vault write auth/kubernetes/role/server-acl-init \
+#   bound_service_account_names=consul-server-acl-init \
+#   bound_service_account_namespaces="" \
+#   policies="consul-replication-token" \
+#   ttl=24h
 
 ## PKI configuration
 
@@ -115,7 +130,7 @@ vault secrets tune -max-lease-ttl=87600h pki
 
 vault write -field=certificate pki/root/generate/internal \
   common_name="dc1.consul" \
-  ttl=87600h
+  ttl=87600h > ${ASSETS}/consul_ca.crt
 # -----BEGIN CERTIFICATE-----
 # MIIDMjCCAhqgAwIBAgIUGnHzuETSKLBqYz7CnW9iDdFbGVAwDQYJKoZIhvcNAQEL
 # BQAwFTETMBEGA1UEAxMKZGMxLmNvbnN1bDAeFw0yMjAzMTcxMDQwNTlaFw0zMjAz
@@ -146,6 +161,12 @@ path "consul/data/secret/gossip" {
 }
 EOF
 # Success! Uploaded policy: gossip-policy
+
+vault policy write enterpriselicense-policy - <<EOF
+path "consul/data/secret/enterpriselicense" {  capabilities = ["read"]}
+EOF
+# Success! Uploaded policy: enterpriselicense-policy
+
 
 vault policy write consul-server - <<EOF
 path "kv/data/consul-server"
@@ -205,7 +226,7 @@ vault write pki/roles/consul-server \
 kubectl create namespace consul
 # namespace/consul created
 
-kubectl create secret generic consul-ent-license --from-literal="key=$(cat consul.hclic)" -n consul
+# kubectl create secret generic consul-ent-license --from-literal="key=$(cat consul.hclic)" -n consul
 # error: failed to create secret namespaces "consul" not found
 # secret/consul-ent-license created
 
