@@ -9,8 +9,8 @@ helm uninstall -n vault vault
 
 helm install -n vault --create-namespace -f ${ASSETS}/vault-values.yaml --debug --wait vault hashicorp/vault --version "0.19.0"
 
-echo "Sleeping 30 seconds"
-sleep 30
+echo "Sleeping 50 seconds"
+sleep 50
 
 set -x
 
@@ -41,6 +41,8 @@ export VAULT_TOKEN=`cat assets/cluster-keys.json | jq -r ".root_token"`
 
 export PATH=$PATH:./bin
 
+## KV configuration
+
 vault secrets enable -path=consul kv-v2
 # Success! Enabled the kv-v2 secrets engine at: consul/
 
@@ -61,69 +63,10 @@ vault kv put consul/secret/enterpriselicense key="$(cat ./consul.hclic)"
 # destroyed          false
 # version            1
 
-
-vault auth enable kubernetes
-# Success! Enabled kubernetes auth method at: kubernetes/
-
-export token_reviewer_jwt="`kubectl exec --stdin=true --tty=true vault-0 -n vault -- cat /var/run/secrets/kubernetes.io/serviceaccount/token`"
-# export kubernetes_ca_cert="`kubectl exec --stdin=true --tty=true vault-0 -n vault -- awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' /var/run/secrets/kubernetes.io/serviceaccount/ca.crt`"
-export kubernetes_ca_cert="`kubectl exec --stdin=true --tty=true vault-0 -n vault -- cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt`"
-export kubernetes_port_443_tcp_addr=`kubectl exec --stdin=true --tty=true vault-0 -n vault -- /bin/sh -c 'echo -en $KUBERNETES_PORT_443_TCP_ADDR'`
-
-kubectl proxy &
-
-export kubernetes_issuer=`curl --silent http://127.0.0.1:8001/.well-known/openid-configuration | jq -r .issuer`
-
-kill %%
-
-# kubectl exec --stdin=true --tty=true vault-0 -n vault -- \
-vault write auth/kubernetes/config \
-  token_reviewer_jwt="${token_reviewer_jwt}" \
-  kubernetes_host="https://${kubernetes_port_443_tcp_addr}:443" \
-  # issuer="${kubernetes_issuer}" \
-  disable_iss_validation=true \
-  kubernetes_ca_cert="${kubernetes_ca_cert}"
-# Success! Data written to: auth/kubernetes/config
-
-
-vault write auth/kubernetes/role/consul-server \
-  bound_service_account_names=consul-server \
-  bound_service_account_namespaces=consul \
-  policies="gossip-policy,consul-server,connect,enterpriselicense-policy" \
-  ttl=24h
-# Success! Data written to: auth/kubernetes/role/consul-server
-
-
-vault write auth/kubernetes/role/consul-client \
-  bound_service_account_names=consul-client \
-  bound_service_account_namespaces=consul \
-  policies="gossip-policy,ca-policy,enterpriselicense-policy" \
-  ttl=24h
-# Success! Data written to: auth/kubernetes/role/consul-client
-
-
-## Why namespace consul here?
-
-vault write auth/kubernetes/role/consul-ca \
-  bound_service_account_names="*" \
-  bound_service_account_namespaces=consul \
-  policies=ca-policy \
-  ttl=1h
-# Success! Data written to: auth/kubernetes/role/consul-ca
-
-# vault write auth/kubernetes/role/server-acl-init \
-#   bound_service_account_names=consul-server-acl-init \
-#   bound_service_account_namespaces="" \
-#   policies="consul-replication-token" \
-#   ttl=24h
-
 ## PKI configuration
 
 vault secrets enable pki
 # Success! Enabled the pki secrets engine at: pki/
-
-vault secrets enable -path connect-root pki
-# Success! Enabled the pki secrets engine at: connect-root/
 
 vault secrets tune -max-lease-ttl=87600h pki
 # Success! Tuned the secrets engine at: pki/
@@ -152,6 +95,45 @@ vault write -field=certificate pki/root/generate/internal \
 # 5U3wt2Em
 # -----END CERTIFICATE-----
 
+vault write pki/roles/consul-server \
+  allowed_domains="dc1.consul,consul-server,consul-server.consul,consul-server.consul.svc" \
+  allow_subdomains=true \
+  allow_bare_domains=true \
+  allow_localhost=true \
+  generate_lease=true \
+  max_ttl="720h"
+# Success! Data written to: pki/roles/consul-server
+
+vault secrets enable -path connect-root pki
+# Success! Enabled the pki secrets engine at: connect-root/
+
+## k8s auth configuration
+
+set -x 
+vault auth enable kubernetes
+# Success! Enabled kubernetes auth method at: kubernetes/
+
+export token_reviewer_jwt="`kubectl exec --stdin=true --tty=true vault-0 -n vault -- cat /var/run/secrets/kubernetes.io/serviceaccount/token`"
+# export kubernetes_ca_cert="`kubectl exec --stdin=true --tty=true vault-0 -n vault -- awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' /var/run/secrets/kubernetes.io/serviceaccount/ca.crt`"
+export kubernetes_ca_cert="`kubectl exec --stdin=true --tty=true vault-0 -n vault -- cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt`"
+export kubernetes_port_443_tcp_addr=`kubectl exec --stdin=true --tty=true vault-0 -n vault -- /bin/sh -c 'echo -en $KUBERNETES_PORT_443_TCP_ADDR'`
+
+kubectl proxy &
+
+export kubernetes_issuer=`curl --silent http://127.0.0.1:8001/.well-known/openid-configuration | jq -r .issuer`
+
+kill %%
+
+# kubectl exec --stdin=true --tty=true vault-0 -n vault -- \
+vault write auth/kubernetes/config \
+  token_reviewer_jwt="${token_reviewer_jwt}" \
+  kubernetes_host="https://${kubernetes_port_443_tcp_addr}:443" \
+  # issuer="${kubernetes_issuer}" \
+  disable_iss_validation=true \
+  kubernetes_ca_cert="${kubernetes_ca_cert}"
+# Success! Data written to: auth/kubernetes/config
+
+set +x
 
 ## Generate policies
 
@@ -214,16 +196,45 @@ path "auth/token/lookup" {
 EOF
 # Success! Uploaded policy: connect
 
-vault write pki/roles/consul-server \
-  allowed_domains="dc1.consul,consul-server,consul-server.consul,consul-server.consul.svc" \
-  allow_subdomains=true \
-  allow_bare_domains=true \
-  allow_localhost=true \
-  generate_lease=true \
-  max_ttl="720h"
-# Success! Data written to: pki/roles/consul-server
+### k8s auth roles
 
-kubectl create namespace consul
+vault write auth/kubernetes/role/consul-server \
+  bound_service_account_names=consul-server \
+  bound_service_account_namespaces=consul \
+  policies="gossip-policy,consul-server,connect,enterpriselicense-policy" \
+  ttl=24h
+# Success! Data written to: auth/kubernetes/role/consul-server
+
+
+vault write auth/kubernetes/role/consul-client \
+  bound_service_account_names=consul-client \
+  bound_service_account_namespaces=consul \
+  policies="gossip-policy,ca-policy,enterpriselicense-policy" \
+  ttl=24h
+# Success! Data written to: auth/kubernetes/role/consul-client
+
+
+## Why namespace consul here?
+
+vault write auth/kubernetes/role/consul-ca \
+  bound_service_account_names="*" \
+  bound_service_account_namespaces=consul \
+  policies=ca-policy \
+  ttl=1h
+# Success! Data written to: auth/kubernetes/role/consul-ca
+
+# vault write auth/kubernetes/role/server-acl-init \
+#   bound_service_account_names=consul-server-acl-init \
+#   bound_service_account_namespaces="" \
+#   policies="consul-replication-token" \
+#   ttl=24h
+
+
+
+
+
+
+# kubectl create namespace consul
 # namespace/consul created
 
 # kubectl create secret generic consul-ent-license --from-literal="key=$(cat consul.hclic)" -n consul
