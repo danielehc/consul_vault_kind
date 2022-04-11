@@ -3,6 +3,8 @@ CLUSTER="dc1"
 ASSETS="./assets"
 LOGS="./logs"
 
+mkdir ${LOGS} -p
+
 ## Consul config
 
 helm uninstall -n consul consul
