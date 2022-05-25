@@ -8,7 +8,7 @@ LOGS="./logs"
 helm uninstall -n consul consul
 
 # helm install -n consul -f ${ASSETS}/consul-values.yaml --debug --wait consul hashicorp/consul --version "0.41.1"
-helm install -n consul --create-namespace -f ${ASSETS}/consul-values.yaml --debug --wait consul hashicorp/consul --version "0.41.1"
+helm install -n consul --create-namespace -f ${ASSETS}/consul-values.yaml --debug --wait consul hashicorp/consul --version "0.44.0"
 sleep 30
 
 # kubectl port-forward -n consul consul-server-0 8500:8500 > ${LOGS}/port_forward_consul.log 2>&1 &
