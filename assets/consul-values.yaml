@@ -2,17 +2,13 @@ global:
   datacenter: "dc1"
   name: consul
   domain: consul
-  image: hashicorp/consul-enterprise:1.11.4-ent
+  image: hashicorp/consul-enterprise:1.12-ent
   secretsBackend:
     vault:
       enabled: true
       consulServerRole: consul-server
       consulClientRole: consul-client
       consulCARole: consul-ca
-      # manageSystemACLsRole: server-acl-init
-      # ca:
-      #   secretName: vault-ca-secret
-      #   secretKey: "tls.crt"
       connectCA:
         address: http://vault.vault:8200
         rootPKIPath: connect-root/
@@ -20,10 +16,10 @@ global:
   enterpriseLicense:
     secretName: 'consul/data/secret/enterpriselicense'
     secretKey: 'key'
-  adminPartitions:
-    enabled: true
-    service:
-      type: ClusterIP
+  # adminPartitions:
+  #   enabled: true
+  #   service:
+  #     type: ClusterIP
   tls:
     enabled: true
     enableAutoEncrypt: true
@@ -34,7 +30,7 @@ global:
     enabled: false
     createFederationSecret: false
   acls:
-    manageSystemACLs: true
+    manageSystemACLs: false
     #createReplicationToken: true
   gossipEncryption:
     #autoGenerate: true
@@ -58,6 +54,7 @@ connectInject:
     defaultEnabled: true
   # envoyExtraArgs: "--log-level debug"
   consulNamespaces:
+    consulDestinationNamespace: "ns1"
     mirroringK8S: true
   # metrics:
   #   defaultEnableMerging: true
@@ -71,10 +68,10 @@ controller:
 #not supported with the current vault backend
 meshGateway:
   enabled: false
-  replicas: 0
+  replicas: 1
 ingressGateways:
   replicas: 1
-  enabled: enable
+  enabled: true
   gateways:
     - name: ingress-gateway
       service:
@@ -93,6 +90,7 @@ ui:
   metrics:
     provider: prometheus
     baseURL: http://prometheus-server
+
 syncCatalog:
   enabled: true
   consulNamespaces:

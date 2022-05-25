@@ -7,7 +7,7 @@ LOGS="./logs"
 
 helm uninstall -n vault vault
 
-helm install -n vault --create-namespace -f ${ASSETS}/vault-values.yaml --debug --wait vault hashicorp/vault --version "0.19.0"
+helm install -n vault --create-namespace -f ${ASSETS}/vault-values.yaml --debug --wait vault hashicorp/vault --version "0.20.0"
 
 echo "Sleeping 50 seconds"
 sleep 50

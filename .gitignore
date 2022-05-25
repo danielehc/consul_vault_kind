@@ -4,5 +4,6 @@ tests/
 
 *.crt
 *.ctr
+*.json
 
 consul.hclic
